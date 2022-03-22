@@ -28,7 +28,8 @@ enum RobotState {
     LOST,
     END,
     SHELF_COLOUR_CHECK,
-    SHELF_WEIGHT_CHECK
+    SHELF_WEIGHT_CHECK,
+    OBSTACLE
 };
 
 #endif // DEFINITIONS_H
