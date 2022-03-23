@@ -11,6 +11,8 @@ enum TapeState {
     CENTER,
     LEFT_EDGE,
     RIGHT_EDGE,
+    LEFT_CORNER,
+    RIGHT_CORNER,
     LOST_TAPE,
     MARKER
 };

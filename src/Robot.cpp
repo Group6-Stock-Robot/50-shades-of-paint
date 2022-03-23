@@ -26,17 +26,20 @@ void Robot::init() {
     } else {
         tape.readCalibrationFromEEPROM(); // calibration data found, load calibration
     }
+    delay(100);
     debug = display.prompt(F("ENABLE\nDEBUG?"));
     display.printScn(F("Put robot\non track"));
-    while (currentState.getTape() != CENTER) {
-        tape.update();
+    while (tape.update() != CENTER) {
+        ;
     }
     display.printScn(F("  READY!\npress YES\nto begin"));
+    delay(100);
     while (digitalRead(okBtn) == HIGH) {
         ;
     }
     display.printScn(F("\nSTARTING!"));
     delay(500);
+    start();
 }
 
 void Robot::setSpeed(int speed) {
@@ -67,9 +70,9 @@ void Robot::update() {
     }
 
     if (currentState.getState() == LOST) {
-        if (lastState.getTape() == LEFT_EDGE) {
+        if (lastState.getTape() == LEFT_EDGE || lastState.getTape() == RIGHT_CORNER) {
             driveModule.rotate(RIGHT);
-        } else if (lastState.getTape() == RIGHT_EDGE) {
+        } else if (lastState.getTape() == RIGHT_EDGE || lastState.getTape() == LEFT_CORNER) {
             driveModule.rotate(LEFT);
         } else if (lastState.getTape() == MARKER) {
             setSpeed(40);
@@ -83,19 +86,21 @@ void Robot::update() {
         }
     }
 
-    if (debug)
+    if (debug) {
         displayState();
-
+    }
+    update();
 }
 
 /** @brief Update the display with current speeds of the left and right motors, action and tape follower state. */
 void Robot::displayState() {
-    char buffer[20];
-    sprintf(buffer, "L: %d\nR: %d", lSpeed, rSpeed);
     display.reset();
+    display.print("L: ");
+    display.print(lSpeed);
+    display.print("\nR: ");
+    display.println(rSpeed);
     display.println(stateToString(currentState.getState()));
     display.println(tape.stateToString(currentState.getTape()));
-    display.println(buffer);
     display.display();
 }
 
@@ -124,10 +129,19 @@ String Robot::stateToString(uint8_t _robotState) {
 };
 
 void Robot::calibrate() {
+    delay(100);
     display.setTextSize(1);
     display.prompt(F("Place sensors ON tape\n\nPress SW3 when ready"));
     tape.calibrateHigh();
+    delay(100);
     display.prompt(F("Place sensors OFF tape\n\nPress SW3 when ready"));
     tape.calibrateLow();
     display.setTextSize(2);
+    delay(100);
+    if (display.prompt(F("Save confg\nto EEPROM?")))
+        tape.saveCalibrationToEEPROM();
+}
+void Robot::start() {
+    driveModule.drive();
+    update();
 }

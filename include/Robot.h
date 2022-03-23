@@ -1,8 +1,7 @@
 #ifndef ROBOT_H
 #define ROBOT_H
 #include <Arduino.h>
-#include <Servo.h>
-
+#include "Servo.h"
 #include "Drive.h"
 #include "State.h"
 #include "Display.h"
@@ -53,6 +52,7 @@ private:
     void setSpeed(int _lSpeed, int _rSpeed);
     void updateAnalogueSpeed();
     void calibrate();
+    void start();
 public:
     Robot();
     void init();

@@ -17,7 +17,12 @@ State * State::update(State * lastState, uint8_t _tape) {
             state = DRIVING;
         }
         if (tape == LOST_TAPE) {
-            state = LOST;
+            if (lastState->getState() == LEFT_EDGE || lastState->getState() == RIGHT_CORNER)
+                state = RIGHT_CORNER;
+            else if (lastState->getState() == RIGHT_EDGE || lastState->getState() == LEFT_CORNER)
+                state = LEFT_CORNER;
+            else
+                state = LOST;
         }
         if (tape == MARKER) {
             if (lastState->getState() != LOST)
