@@ -30,8 +30,8 @@ String Tape::stateToString(uint8_t _state) {
             return F("RIGHT_EDGE");
         case LOST_TAPE:
             return F("LOST TAPE");
-        case MARKER:
-            return F("MARKER");
+        case MARK:
+            return F("MARK");
         default:
             return F("ERROR");
     }
@@ -54,7 +54,7 @@ uint8_t Tape::defineState() {
     }
     // Robot either on the shelf mark, finish line or perpendicular to the track
     if (irBinary[0] == HIGH && irBinary[1] == HIGH && irBinary[2] == HIGH) {
-        return MARKER;
+        return MARK;
     }
     return UNDEFINED_STATE;
 }

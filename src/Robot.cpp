@@ -13,6 +13,8 @@ void Robot::init() {
     digitalWrite(buzzer, LOW);
     armServo.attach(armServoPin);
     radarServo.attach(radarServoPin);
+    armServo.write(ARM_HORIZONTAL);
+    radarServo.write(RADAR_MID);
     display.init();
     colour.init();
     tape.init();
@@ -28,6 +30,7 @@ void Robot::init() {
     }
     delay(100);
     debug = display.prompt(F("ENABLE\nDEBUG?"));
+    delay(100);
     display.printScn(F("Put robot\non track"));
     while (tape.update() != CENTER) {
         ;
@@ -47,60 +50,46 @@ void Robot::setSpeed(int speed) {
 }
 
 void Robot::setSpeed(int _lSpeed, int _rSpeed) {
-    lSpeed = _lSpeed * speedScale;
-    rSpeed = _rSpeed * speedScale;
+    lSpeed = _lSpeed;
+    rSpeed = _rSpeed;
 }
 
-void Robot::updateAnalogueSpeed() {
-    int * irAnalogue = new int[3];
-    irAnalogue = tape.getIrAnalogue();
-    lSpeed = constrain(map(irAnalogue[1] + irAnalogue[2], 0, 200, 0, 100), 0, 100);
-    rSpeed = constrain(map(irAnalogue[1] + irAnalogue[0], 0, 200, 0, 100), 0, 100);
-    delete(irAnalogue);
+void Robot::updateAnalogueSpeed(int * irAnalogue) {
+    int lSpeed_ = constrain(map(irAnalogue[1] + irAnalogue[2], 0, 200, 0, 100), 0, 70);
+    int rSpeed_ = constrain(map(irAnalogue[1] + irAnalogue[0], 0, 200, 0, 100), 0, 70);
+    setSpeed(lSpeed_, rSpeed_);
 }
 
+// NOTE if this section gets too long it should be refactored into seperate functions or even class
 void Robot::update() {
     lastState = currentState;
-    currentState.update(&lastState, tape.update());
+    updateLoopState = currentState.update(&lastState, tape.update(), timeoutTimer.isActive());
 
-    // NOTE if this section gets too long it should be refactored into seperate functions or even class
-    if (currentState.getState() == DRIVING) {
-        updateAnalogueSpeed();
-        driveModule.drive(lSpeed, rSpeed);
-    }
-
-    if (currentState.getState() == LOST) {
-        if (lastState.getTape() == LEFT_EDGE || lastState.getTape() == RIGHT_CORNER) {
-            driveModule.rotate(RIGHT);
-        } else if (lastState.getTape() == RIGHT_EDGE || lastState.getTape() == LEFT_CORNER) {
-            driveModule.rotate(LEFT);
-        } else if (lastState.getTape() == MARKER) {
-            setSpeed(40);
-            driveModule.drive(lSpeed, rSpeed);
-        } else if (lastState.getTape() == CENTER) {
-            updateAnalogueSpeed();
-            driveModule.drive(lSpeed, rSpeed);
-        } else {
-            setSpeed(-40);
-            driveModule.drive(lSpeed, rSpeed);
+    if (!radar.pathClear()) {
+        handleObstruction();
+    } else {
+        if (updateLoopState == MARKER) {
+            if (!timeoutTimer.isActive() && currentState.getState() == MARKER_HIGH)
+                timeoutTimer.setTimeOut(150);
+            handleMarker();
+        } else if (!timeoutTimer.isActive() || updateLoopState == CRITICAL) { // if there is no timeout or state change was critical we enter the logic block
+            drive();
+        }
+        if (debug) {
+            displayState(stateToString(currentState.getState()), tape.stateToString(currentState.getTape()));
         }
     }
-
-    if (debug) {
-        displayState();
-    }
-    update();
 }
 
 /** @brief Update the display with current speeds of the left and right motors, action and tape follower state. */
-void Robot::displayState() {
+void Robot::displayState(String robotState, String tapeState) {
     display.reset();
-    display.print("L: ");
+    display.print(F("L: "));
     display.print(lSpeed);
-    display.print("\nR: ");
+    display.print(F("\nR: "));
     display.println(rSpeed);
-    display.println(stateToString(currentState.getState()));
-    display.println(tape.stateToString(currentState.getTape()));
+    display.println(robotState);
+    display.println(tapeState);
     display.display();
 }
 
@@ -113,16 +102,20 @@ String Robot::stateToString(uint8_t _robotState) {
     switch (_robotState) {
         case DRIVING:
             return F("DRIVING");
+        case LEFT_CORNER:
+            return F("L CORNER");
+        case RIGHT_CORNER:
+            return F("R CORNER");
+        case MARKER_HIGH:
+            return F("MARK HIGH");
+        case MARKER_LOW:
+            return F("MARK LOW");
         case LOST:
             return F("LOST");
         case END:
             return F("END");
-        case SHELF_COLOUR_CHECK:
-            return F("COLOR CHK");
-        case SHELF_WEIGHT_CHECK:
-            return F("WEIGHT CHK");
-        case OBSTACLE:
-            return F("OBSTACLE");
+        case SHELF:
+            return F("SHELF");
         default:
             return F("ERROR");
     }
@@ -132,16 +125,86 @@ void Robot::calibrate() {
     delay(100);
     display.setTextSize(1);
     display.prompt(F("Place sensors ON tape\n\nPress SW3 when ready"));
-    tape.calibrateHigh();
     delay(100);
+    tape.calibrateHigh();
     display.prompt(F("Place sensors OFF tape\n\nPress SW3 when ready"));
+    delay(100);
     tape.calibrateLow();
     display.setTextSize(2);
-    delay(100);
     if (display.prompt(F("Save confg\nto EEPROM?")))
         tape.saveCalibrationToEEPROM();
+    delay(100);
 }
+
 void Robot::start() {
     driveModule.drive();
-    update();
+}
+
+void Robot::handleObstruction() {
+    driveModule.stop();
+    while (!radar.pathClear()) {
+        if (millis() - buzzerTimestamp > ALERT_LENGHT) {
+            if (buzzing) {
+                digitalWrite(buzzer, LOW);
+                buzzing = false;
+            } else {
+                digitalWrite(buzzer, HIGH);
+                buzzing = true;
+            }
+            buzzerTimestamp = millis();
+        }
+        if (!alertDisplayed) {
+            display.printScn(F("   PLEASE\n   CLEAR\n    PATH"));
+            alertDisplayed = true;
+        }
+    }
+    digitalWrite(buzzer, LOW);
+    buzzing = false;
+    alertDisplayed = false;
+    start();
+}
+
+void Robot::drive() {
+    if (currentState.getState() == DRIVING) {
+        updateAnalogueSpeed(tape.getIrAnalogue());
+        driveModule.drive(lSpeed, rSpeed);
+    } else if (lastState.getTape() == LEFT_EDGE || currentState.getState() == RIGHT_CORNER) {
+        driveModule.rotate(RIGHT);
+    } else if (lastState.getTape() == RIGHT_EDGE || currentState.getState() == LEFT_CORNER) {
+        driveModule.rotate(LEFT);
+    }
+    if (currentState.getState() == LOST) {
+        if (lastState.getTape() == LEFT_EDGE || lastState.getState() == RIGHT_CORNER) {
+            driveModule.rotate(RIGHT);
+        } else if (lastState.getTape() == RIGHT_EDGE || lastState.getState() == LEFT_CORNER) {
+            driveModule.rotate(LEFT);
+        } else {
+            setSpeed(-20);
+            driveModule.drive(lSpeed, rSpeed);
+        }
+    }
+    if (currentState.getState() == RIGHT_CORNER)
+        driveModule.rotate(RIGHT);
+    if (currentState.getState() == LEFT_CORNER)
+        driveModule.rotate(LEFT);
+
+}
+
+void Robot::handleMarker() {
+    if (currentState.getState() == SHELF) {
+        driveModule.stop();
+        armServo.write(ARM_HORIZONTAL);
+        delay(1500);
+        armServo.write(ARM_VERTICAL);
+        delay(1500);
+        armServo.write(ARM_HORIZONTAL);
+        delay(1500);
+    } else {
+        setSpeed(5);
+        driveModule.drive(lSpeed, rSpeed);
+    }
+}
+
+void Robot::takeMeasurments() {
+
 }

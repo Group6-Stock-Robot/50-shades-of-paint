@@ -7,5 +7,5 @@ void setup() {
 }
 
 void loop() {
-
+  paint50.update();
 }

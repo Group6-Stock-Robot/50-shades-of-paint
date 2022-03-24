@@ -7,12 +7,12 @@ private:
     uint8_t tape;
     // uint8_t motor;
     uint8_t state;
-    bool pathClear;
+    uint8_t lastKnownTape;
 
 public:
     State();
 
-    State * update(State * lastState, uint8_t tape);
+    uint8_t update(State * lastState, uint8_t tape, bool markerTimeoutActive);
     State operator =(State & source);
     bool operator ==(State & compareState);
 

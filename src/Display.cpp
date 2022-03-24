@@ -23,8 +23,8 @@ bool Display::init() {
 bool Display::prompt(String msg) {
     reset();
     println(msg);
-    println("SW3 -> Yes");
-    println("SW2 -> No");
+    println(F("SW3 -> Yes"));
+    println(F("SW2 -> No"));
     display();
     while (1) {
         if (digitalRead(okBtn) == LOW)

@@ -6,3 +6,8 @@ uint32_t Radar::update() {
     distance = Ultrasonic::read();
     return distance;
 }
+
+bool Radar::pathClear() {
+    update();
+    return distance > alertThreshold;
+}

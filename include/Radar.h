@@ -6,12 +6,13 @@
 class Radar : public Ultrasonic {
 private:
     const uint8_t shelfDistance = 20;
-    const uint8_t alertThreshold = 50;
+    const uint8_t alertThreshold = 30;
     uint32_t distance;
 public:
     Radar(uint8_t trigger, uint8_t echo);
     uint32_t update();
     int getDistance() { return distance; }
+    bool pathClear();
 };
 
 

@@ -1,5 +1,6 @@
 #ifndef ROBOT_H
 #define ROBOT_H
+
 #include <Arduino.h>
 #include "Servo.h"
 #include "Drive.h"
@@ -9,6 +10,7 @@
 #include "Tape.h"
 #include "Colour.h"
 #include "Definitions.h"
+#include "Timer.h"
 
 /**
  * @brief
@@ -28,15 +30,22 @@
  *  buzzer                  | 4
  */
 class Robot {
+    friend class Controller;
+
+
 
 private:
-    uint8_t armServoPin = 7, radarServoPin = 8, trigPin = 9, echoPin = 10, lMotorIn1 = 11,
-        lMotorIn2 = 6, rMotorIn3 = 3, rMotorIn4 = 5, okBtn = 13, cancelBtn = 12, buzzer = 4,
-        tapeLeft = A0, tapeMid = A1, tapeRight = A2;
+    uint8_t armServoPin = 7, radarServoPin = 8, trigPin = 9, echoPin = 10,
+        lMotorIn1 = 11, lMotorIn2 = 6, rMotorIn3 = 3, rMotorIn4 = 5, okBtn = 13,
+        cancelBtn = 12, buzzer = 4, tapeLeft = A0, tapeMid = A1, tapeRight = A2;
+
+    uint32_t buzzerTimestamp = 0;
+    bool buzzing = false;
+    bool alertDisplayed = false;
 
     int lSpeed = 0, rSpeed = 0;
-    float speedScale = 1.0F;
     bool debug;
+    int updateLoopState = 1;
 
     State currentState, lastState;
 
@@ -46,18 +55,23 @@ private:
     Drive driveModule;
     Display display;
     Colour colour;
-
+    Timer timeoutTimer;
 
     void setSpeed(int speed);
     void setSpeed(int _lSpeed, int _rSpeed);
-    void updateAnalogueSpeed();
+    void updateAnalogueSpeed(int * irAnalogue);
     void calibrate();
     void start();
+    void handleObstruction();
+    void drive();
+    void handleMarker();
+    void takeMeasurments();
+
 public:
     Robot();
     void init();
     void update();
-    void displayState();
+    void displayState(String robotState, String tapeState);
     String stateToString(uint8_t _robotState);
 
 };

@@ -5,16 +5,24 @@
 #define UNDEFINED_STATE -1
 #define LEFT 0
 #define RIGHT 1
+#define NON_CRITIAL 0
+#define CRITICAL 1
+#define MARKER 2
+#define ARM_HORIZONTAL 176
+#define ARM_VERTICAL 80
+#define RADAR_OFFSET -3
+#define RADAR_LEFT 45 + RADAR_OFFSET
+#define RADAR_MID 90 + RADAR_OFFSET
+#define RADAR_RIGHT 135 + RADAR_OFFSET
+#define ALERT_LENGHT 700
 
 /** @brief Sensor state representation */
 enum TapeState {
     CENTER,
     LEFT_EDGE,
     RIGHT_EDGE,
-    LEFT_CORNER,
-    RIGHT_CORNER,
     LOST_TAPE,
-    MARKER
+    MARK
 };
 
 enum MotorState {
@@ -27,11 +35,13 @@ enum MotorState {
 
 enum RobotState {
     DRIVING,
+    LEFT_CORNER,
+    RIGHT_CORNER,
+    MARKER_HIGH,
+    MARKER_LOW,
+    SHELF,
     LOST,
-    END,
-    SHELF_COLOUR_CHECK,
-    SHELF_WEIGHT_CHECK,
-    OBSTACLE
+    END
 };
 
 #endif // DEFINITIONS_H
