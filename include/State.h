@@ -12,7 +12,7 @@ private:
 public:
     State();
 
-    uint8_t update(State * lastState, uint8_t tape, bool markerTimeoutActive, bool finishTimeoutActive);
+    uint8_t update(State * lastState, uint8_t tape, bool markerTimeoutActive);
     State operator =(State & source);
     bool operator ==(State & compareState);
 

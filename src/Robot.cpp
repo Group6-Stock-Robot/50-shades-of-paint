@@ -30,6 +30,8 @@ void Robot::init() {
     }
     delay(100);
     debug = display.prompt(F("ENABLE\nDEBUG?"));
+    if (debug)
+        driveModule.setSpeedScale(0.5);
     delay(100);
     display.printScn(F("Put robot\non track"));
     while (tape.update() != CENTER) {
@@ -60,32 +62,31 @@ void Robot::updateAnalogueSpeed(int * irAnalogue) {
     setSpeed(lSpeed_, rSpeed_);
 }
 
-// NOTE if this section gets too long it should be refactored into seperate functions or even class
-void Robot::update() {
+bool Robot::update() {
     lastState = currentState;
-    updateLoopState = currentState.update(&lastState, tape.update(), shelfMarkTimer.isActive(), finishMarkTimer.isActive());
+    bool shelfTimeout = shelfMarkTimer.isActive();
+    bool actionTimeout = actionTimer.isActive();
+    updateLoopState = currentState.update(&lastState, tape.update(), shelfTimeout);
 
     if (!radar.pathClear()) {
         handleObstruction();
-    } else {
-        if (updateLoopState == MARKER) {
-            if (currentState.getState() == MARKER_HIGH) {
-                if (!shelfMarkTimer.isActive()) {
-                    shelfMarkTimer.setTimeOut(100);
-                }
-                if (!finishMarkTimer.isActive()) {
-                    finishMarkTimer.setTimeOut(200);
-                }
+    } else if (updateLoopState == MARKER) {
+        if (currentState.getState() == MARKER_HIGH) {
+            if (!shelfTimeout) {
+                shelfMarkTimer.setTimeOut(150);
             }
-            handleMarker();
-        } else if ((!shelfMarkTimer.isActive() && !finishMarkTimer.isActive() && !actionTimer.isActive()) || updateLoopState == CRITICAL) {
-            // if there is no timeout active or state change was critical we enter the drive logic block
-            drive();
         }
-        if (debug) {
-            displayState(stateToString(currentState.getState()), tape.stateToString(currentState.getTape()));
-        }
+        handleMarker();
+        if (currentState.getState() == END)
+            return true;
+    } else if ((!shelfTimeout && !actionTimeout) || updateLoopState == CRITICAL) {
+        // if there is no timeout active or state change was critical we enter the drive logic block
+        drive();
     }
+    if (debug) {
+        displayState(stateToString(currentState.getState()), tape.stateToString(currentState.getTape()));
+    }
+    return false;
 }
 
 /** @brief Update the display with current speeds of the left and right motors, action and tape follower state. */
@@ -164,62 +165,71 @@ void Robot::handleObstruction() {
         if (!alertDisplayed) {
             display.printScn(F("   PLEASE\n   CLEAR\n    PATH"));
             alertDisplayed = true;
+            radarServo.write(RADAR_LEFT);
+            delay(400);
+            radarServo.write(RADAR_RIGHT);
+            delay(400);
+            radarServo.write(RADAR_MID);
+            delay(400);
         }
-        radarServo.write(RADAR_LEFT);
-        delay(400);
-        radarServo.write(RADAR_RIGHT);
-        delay(400);
-        radarServo.write(RADAR_MID);
-        delay(400);
+
     }
     digitalWrite(buzzer, LOW);
     buzzing = false;
     alertDisplayed = false;
-    start();
+    display.printScn(F("\n DRIVING"));
+    driveModule.drive();
 }
 
 void Robot::drive() {
     if (currentState.getState() == DRIVING) {
         updateAnalogueSpeed(tape.getIrAnalogue());
         driveModule.drive(lSpeed, rSpeed);
-    } else if (lastState.getTape() == LEFT_EDGE || currentState.getState() == RIGHT_CORNER) {
-        driveModule.rotate(RIGHT);
-    } else if (lastState.getTape() == RIGHT_EDGE || currentState.getState() == LEFT_CORNER) {
-        driveModule.rotate(LEFT);
-    }
-    if (currentState.getState() == LOST) {
-        if (lastState.getTape() == LEFT_EDGE || lastState.getState() == RIGHT_CORNER) {
+    } else if (currentState.getState() == RIGHT_CORNER) {
+        if (lastState.getState() != RIGHT_CORNER) {
+            driveModule.drive(20);
+            actionTimer.setTimeOut(10);
+        } else {
+            driveModule.rotate(RIGHT);
+        }
+    } else if (currentState.getState() == LEFT_CORNER) {
+        if (lastState.getState() != LEFT_CORNER) {
+            driveModule.drive(20);
+            actionTimer.setTimeOut(10);
+        } else {
+            driveModule.rotate(LEFT);
+        }
+    } else if (currentState.getState() == LOST) {
+        /* if (lastState.getTape() == LEFT_EDGE || lastState.getState() == RIGHT_CORNER) {
             driveModule.rotate(RIGHT);
         } else if (lastState.getTape() == RIGHT_EDGE || lastState.getState() == LEFT_CORNER) {
             driveModule.rotate(LEFT);
-        } else {
-            setSpeed(-20);
-            driveModule.drive(lSpeed, rSpeed);
-        }
+        } else { */
+        setSpeed(-20);
+        driveModule.drive(lSpeed, rSpeed);
+        actionTimer.setTimeOut(100);
+    // }
     }
-    if (currentState.getState() == RIGHT_CORNER)
+    /* if (currentState.getState() == RIGHT_CORNER)
         driveModule.rotate(RIGHT);
     if (currentState.getState() == LEFT_CORNER)
-        driveModule.rotate(LEFT);
-
+        driveModule.rotate(LEFT);*/
 }
 
 void Robot::handleMarker() {
     if (currentState.getState() == END) {
-        missionLength = millis() - missionStartTimestamp;
         driveModule.stop();
-        driveModule.turnAround(10, LEFT);
-        delay(200);
-        driveModule.stop();
-        actionTimer.setTimeOut(86400000 - missionLength);
+        display.printScn(F("\nFINISHED!"));
     } else if (currentState.getState() == SHELF) {
         driveModule.stop();
+        display.printScn(F("\nMEASURING"));
         armServo.write(ARM_HORIZONTAL);
         delay(1000);
         armServo.write(ARM_VERTICAL);
         delay(1000);
         armServo.write(ARM_HORIZONTAL);
         delay(500);
+        display.printScn(F("\n DRIVING"));
     } else {
         setSpeed(5);
         driveModule.drive(lSpeed, rSpeed);

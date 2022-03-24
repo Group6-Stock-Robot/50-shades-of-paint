@@ -7,10 +7,7 @@
 #define RIGHT 1
 
 
-#define NON_CRITIAL 0
-#define CRITICAL 1
-#define MARKER 2
-#define FINISH 3
+
 
 #define ARM_HORIZONTAL 176
 #define ARM_VERTICAL 80
@@ -29,12 +26,10 @@ enum TapeState {
     MARK
 };
 
-enum MotorState {
-    FORWARD,
-    REVERSE,
-    STOP,
-    ROTATE,
-    TURN_AROUND
+enum StateChange {
+    NON_CRITICAL,
+    CRITICAL,
+    MARKER
 };
 
 enum RobotState {

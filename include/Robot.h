@@ -41,7 +41,7 @@ private:
 
     uint32_t buzzerTimestamp = 0;
     uint32_t missionStartTimestamp = 0;
-    uint32_t missionLength = 0;
+
 
     bool buzzing = false;
     bool alertDisplayed = false;
@@ -66,7 +66,6 @@ private:
     void setSpeed(int _lSpeed, int _rSpeed);
     void updateAnalogueSpeed(int * irAnalogue);
     void calibrate();
-    void start();
     void handleObstruction();
     void drive();
     void handleMarker();
@@ -75,8 +74,10 @@ private:
 public:
     Robot();
     void init();
-    void update();
+    void start();
+    bool update();
     void displayState(String robotState, String tapeState);
+    uint32_t getMissionStartTimestamp() const { return missionStartTimestamp; }
     String stateToString(uint8_t _robotState);
 
 };

@@ -8,6 +8,7 @@ class Drive {
     const uint8_t BASE_SPEED = 30;
     Motor * leftMotor;
     Motor * rightMotor;
+    float speedScale = 1.0;
 
 public:
     Drive(Motor * rightMotor, Motor * leftMotor);
@@ -20,6 +21,9 @@ public:
     void rotate(int speed, uint8_t turnDirection);
     void turnAround(uint8_t turnDirection);
     void turnAround(int speed, uint8_t turnDirection);
+
+    float getSpeedScale() const { return speedScale; }
+    void setSpeedScale(float speedScale_) { speedScale = speedScale_; }
 };
 
 #endif // DRIVE_H
