@@ -8,11 +8,11 @@ State::State()
 }
 
 
-uint8_t State::update(State * lastState, uint8_t _tape, bool markerTimeoutActive) {
+uint8_t State::update(State * lastState, uint8_t _tape, bool markerTimeoutActive, bool finishTimeoutActive) {
     tape = _tape;
     if (_tape == CENTER || _tape == LEFT_EDGE || _tape == RIGHT_EDGE) {
         if (((lastState->getState() == MARKER_HIGH || lastState->getState() == MARKER_LOW || state == MARKER_HIGH || state == MARKER_LOW)
-            && markerTimeoutActive) || state == MARKER_HIGH) {
+            && (markerTimeoutActive || finishTimeoutActive)) || state == MARKER_HIGH) {
             lastKnownTape = _tape;
             return MARKER;
         } else if (lastState->getState() == LOST || lastState->getState() == RIGHT_CORNER || lastState->getState() == LEFT_CORNER) {
@@ -59,6 +59,9 @@ uint8_t State::update(State * lastState, uint8_t _tape, bool markerTimeoutActive
     if (_tape == MARK) {
         if (lastState->getState() == MARKER_LOW) {
             state = SHELF;
+            return MARKER;
+        } else if ((lastState->getState() == MARKER_HIGH || state == MARKER_HIGH) && !finishTimeoutActive) {
+            state = END;
             return MARKER;
         } else if (lastState->getState() != LOST) {
             state = MARKER_HIGH;

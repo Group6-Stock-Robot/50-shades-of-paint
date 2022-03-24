@@ -40,6 +40,9 @@ private:
         cancelBtn = 12, buzzer = 4, tapeLeft = A0, tapeMid = A1, tapeRight = A2;
 
     uint32_t buzzerTimestamp = 0;
+    uint32_t missionStartTimestamp = 0;
+    uint32_t missionLength = 0;
+
     bool buzzing = false;
     bool alertDisplayed = false;
 
@@ -55,7 +58,9 @@ private:
     Drive driveModule;
     Display display;
     Colour colour;
-    Timer timeoutTimer;
+    Timer shelfMarkTimer;
+    Timer finishMarkTimer;
+    Timer actionTimer;
 
     void setSpeed(int speed);
     void setSpeed(int _lSpeed, int _rSpeed);

@@ -14,6 +14,7 @@ public:
     uint32_t getTimeStamp() const { return timeStamp; }
     uint32_t getTimeOut() const { return timeOut; }
     void setTimeOut(uint32_t timeOut_);
+    void reset();
     bool isActive();
 
 };

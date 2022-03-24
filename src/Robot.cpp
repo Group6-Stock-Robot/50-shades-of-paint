@@ -63,16 +63,23 @@ void Robot::updateAnalogueSpeed(int * irAnalogue) {
 // NOTE if this section gets too long it should be refactored into seperate functions or even class
 void Robot::update() {
     lastState = currentState;
-    updateLoopState = currentState.update(&lastState, tape.update(), timeoutTimer.isActive());
+    updateLoopState = currentState.update(&lastState, tape.update(), shelfMarkTimer.isActive(), finishMarkTimer.isActive());
 
     if (!radar.pathClear()) {
         handleObstruction();
     } else {
         if (updateLoopState == MARKER) {
-            if (!timeoutTimer.isActive() && currentState.getState() == MARKER_HIGH)
-                timeoutTimer.setTimeOut(150);
+            if (currentState.getState() == MARKER_HIGH) {
+                if (!shelfMarkTimer.isActive()) {
+                    shelfMarkTimer.setTimeOut(100);
+                }
+                if (!finishMarkTimer.isActive()) {
+                    finishMarkTimer.setTimeOut(200);
+                }
+            }
             handleMarker();
-        } else if (!timeoutTimer.isActive() || updateLoopState == CRITICAL) { // if there is no timeout or state change was critical we enter the logic block
+        } else if ((!shelfMarkTimer.isActive() && !finishMarkTimer.isActive() && !actionTimer.isActive()) || updateLoopState == CRITICAL) {
+            // if there is no timeout active or state change was critical we enter the drive logic block
             drive();
         }
         if (debug) {
@@ -137,6 +144,7 @@ void Robot::calibrate() {
 }
 
 void Robot::start() {
+    missionStartTimestamp = millis();
     driveModule.drive();
 }
 
@@ -157,6 +165,12 @@ void Robot::handleObstruction() {
             display.printScn(F("   PLEASE\n   CLEAR\n    PATH"));
             alertDisplayed = true;
         }
+        radarServo.write(RADAR_LEFT);
+        delay(400);
+        radarServo.write(RADAR_RIGHT);
+        delay(400);
+        radarServo.write(RADAR_MID);
+        delay(400);
     }
     digitalWrite(buzzer, LOW);
     buzzing = false;
@@ -191,20 +205,28 @@ void Robot::drive() {
 }
 
 void Robot::handleMarker() {
-    if (currentState.getState() == SHELF) {
+    if (currentState.getState() == END) {
+        missionLength = millis() - missionStartTimestamp;
+        driveModule.stop();
+        driveModule.turnAround(10, LEFT);
+        delay(200);
+        driveModule.stop();
+        actionTimer.setTimeOut(86400000 - missionLength);
+    } else if (currentState.getState() == SHELF) {
         driveModule.stop();
         armServo.write(ARM_HORIZONTAL);
-        delay(1500);
+        delay(1000);
         armServo.write(ARM_VERTICAL);
-        delay(1500);
+        delay(1000);
         armServo.write(ARM_HORIZONTAL);
-        delay(1500);
+        delay(500);
     } else {
         setSpeed(5);
         driveModule.drive(lSpeed, rSpeed);
     }
 }
 
+// TODO
 void Robot::takeMeasurments() {
 
 }

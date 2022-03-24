@@ -12,6 +12,10 @@ void Timer::setTimeOut(uint32_t timeOut_) {
     timeStamp = millis();
 }
 
+void Timer::reset() {
+    active = false;
+}
+
 bool Timer::isActive() {
     if (active) {
         active = (millis() - timeStamp) < timeOut;
